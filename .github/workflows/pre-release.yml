@@ -1,0 +1,48 @@
+name: Pre-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag (e.g. v1.0.0-rc.1)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  pre-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+        env:
+          TGT_RELEASE_VERSION: ${{ github.event.inputs.tag }}
+
+      - name: Bundle release
+        run: |
+          mkdir -p ./temp/swiftdb/lib
+          cp ./LICENSE ./README.md ./fxmanifest.lua ./temp/swiftdb/
+          cp ./lib/MySQL.lua ./temp/swiftdb/lib/
+          cp -r ./dist ./temp/swiftdb/
+          cd ./temp && zip -r ../swiftdb.zip ./swiftdb
+
+      - name: Create pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag }}
+          files: swiftdb.zip
+          prerelease: true
+          generate_release_notes: true

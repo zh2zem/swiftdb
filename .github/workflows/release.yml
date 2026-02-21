@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+        env:
+          TGT_RELEASE_VERSION: ${{ github.ref_name }}
+
+      - name: Bundle release
+        run: |
+          mkdir -p ./temp/swiftdb/lib
+          cp ./LICENSE ./README.md ./fxmanifest.lua ./temp/swiftdb/
+          cp ./lib/MySQL.lua ./temp/swiftdb/lib/
+          cp -r ./dist ./temp/swiftdb/
+          cd ./temp && zip -r ../swiftdb.zip ./swiftdb
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: swiftdb.zip
+          generate_release_notes: true
