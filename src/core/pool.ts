@@ -36,9 +36,13 @@ export async function getConnection(): Promise<PoolConnection> {
     throw new Error(`[swiftdb] Backpressure limit reached (${maxPending} active queries). Query rejected.`);
   }
 
-  activeCount++;
-  const conn = await pool.getConnection();
-  return conn;
+  try {
+    const conn = await pool.getConnection();
+    activeCount++;
+    return conn;
+  } catch (err) {
+    throw err;
+  }
 }
 
 export function releasePoolConnection(conn: PoolConnection): void {

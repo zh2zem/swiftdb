@@ -159,10 +159,22 @@ export async function executeRaw(
 }
 
 function detectQueryType(query: string): QueryType {
-  const first = query.trimStart().slice(0, 7).toUpperCase();
-  if (first.startsWith('INSERT')) return 'insert';
-  if (first.startsWith('UPDATE') || first.startsWith('DELETE')) return 'update';
+  let i = 0;
+  while (i < query.length && query.charCodeAt(i) <= 32) i++;
+  const c = query.charCodeAt(i) | 0x20;
+  if (c === 0x69) return 'insert'; // i
+  if (c === 0x75 || c === 0x64) return 'update'; // u or d
   return null;
+}
+
+function objectValues(obj: Record<string, unknown>): unknown[] {
+  const keys = Object.keys(obj);
+  const len = keys.length;
+  const values = new Array(len);
+  for (let i = 0; i < len; i++) {
+    values[i] = obj[keys[i]];
+  }
+  return values;
 }
 
 function normalizeExecuteParams(parameters: CFXParameters): unknown[][] {
@@ -176,19 +188,18 @@ function normalizeExecuteParams(parameters: CFXParameters): unknown[][] {
     }
 
     if (parameters.length > 0 && typeof parameters[0] === 'object' && parameters[0] !== null) {
-      return (parameters as Record<string, unknown>[]).map((obj) => {
-        const keys = Object.keys(obj).sort((a, b) => parseInt(a) - parseInt(b));
-        return keys.map((k) => obj[k]);
-      });
+      const result = new Array(parameters.length);
+      for (let i = 0; i < parameters.length; i++) {
+        result[i] = objectValues(parameters[i] as Record<string, unknown>);
+      }
+      return result;
     }
 
     return [parameters as unknown[]];
   }
 
   if (typeof parameters === 'object') {
-    const obj = parameters as Record<string, unknown>;
-    const keys = Object.keys(obj).sort((a, b) => parseInt(a) - parseInt(b));
-    return [keys.map((k) => obj[k])];
+    return [objectValues(parameters as Record<string, unknown>)];
   }
 
   return [[]];

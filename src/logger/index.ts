@@ -1,9 +1,10 @@
 import type { SwiftConfig, QueryLogEntry } from '../types';
+import { setProfilerEnabled } from '../profiler';
 
 let debugEnabled: boolean | string[] = false;
 let slowQueryWarning = 200;
 let logSize = 100;
-const resourceLogs = new Map<string, QueryLogEntry[]>();
+const resourceLogs = new Map<string, { buf: QueryLogEntry[]; idx: number }>();
 
 let logFn: (resource: string, query: string, time: number, params?: unknown[]) => void = noop;
 
@@ -17,14 +18,18 @@ function realLog(resource: string, query: string, time: number, params?: unknown
     timestamp: Date.now(),
   };
 
-  let logs = resourceLogs.get(resource);
-  if (!logs) {
-    logs = [];
-    resourceLogs.set(resource, logs);
+  let ring = resourceLogs.get(resource);
+  if (!ring) {
+    ring = { buf: [], idx: 0 };
+    resourceLogs.set(resource, ring);
   }
 
-  if (logs.length >= logSize) logs.shift();
-  logs.push(entry);
+  if (ring.buf.length < logSize) {
+    ring.buf.push(entry);
+  } else {
+    ring.buf[ring.idx % logSize] = entry;
+  }
+  ring.idx++;
 
   if (isDebugResource(resource)) {
     console.log(
@@ -53,14 +58,23 @@ export function initLogger(config: SwiftConfig): void {
 
 export function refreshDebug(): void {
   const val = GetConvar('swift_debug', GetConvar('mysql_debug', 'false'));
-  if (val === 'true') debugEnabled = true;
-  else if (val === 'false') debugEnabled = false;
-  else {
+  if (val === 'true') {
+    debugEnabled = true;
+    logFn = realLog;
+  } else if (val === 'false') {
+    debugEnabled = false;
+    logFn = noop;
+  } else if (val.startsWith('[')) {
     try {
       const parsed = JSON.parse(val);
-      if (Array.isArray(parsed)) debugEnabled = parsed;
+      if (Array.isArray(parsed)) {
+        debugEnabled = parsed;
+        logFn = realLog;
+      }
     } catch {}
   }
+
+  setProfilerEnabled(debugEnabled !== false);
 }
 
 export function logQuery(resource: string, query: string, time: number, params?: unknown[]): void {
@@ -76,5 +90,11 @@ export function logSlowQuery(resource: string, query: string, time: number): voi
 }
 
 export function getResourceLogs(resource: string): QueryLogEntry[] {
-  return resourceLogs.get(resource) || [];
+  const ring = resourceLogs.get(resource);
+  if (!ring) return [];
+
+  if (ring.buf.length < logSize) return ring.buf;
+
+  const start = ring.idx % logSize;
+  return [...ring.buf.slice(start), ...ring.buf.slice(0, start)];
 }

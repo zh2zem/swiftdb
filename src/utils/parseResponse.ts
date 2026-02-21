@@ -11,8 +11,8 @@ export function parseResponse(type: QueryType, result: any): any {
     case 'scalar': {
       const row = result[0];
       if (!row) return null;
-      const values = Object.values(row);
-      return values[0] ?? null;
+      for (const key in row) return row[key] ?? null;
+      return null;
     }
     default:
       return result ?? null;

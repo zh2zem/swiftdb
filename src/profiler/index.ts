@@ -2,12 +2,18 @@ import type { PoolConnection } from '../types';
 
 let sampleRate = 20;
 let counter = 0;
+let enabled = false;
 
 export function initProfiler(rate: number): void {
   sampleRate = rate;
 }
 
+export function setProfilerEnabled(value: boolean): void {
+  enabled = value;
+}
+
 export function shouldProfile(): boolean {
+  if (!enabled) return false;
   return ++counter % sampleRate === 0;
 }
 
