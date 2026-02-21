@@ -131,19 +131,27 @@ export function buildPoolOptions(config: SwiftConfig): PoolOptions {
   const parsed = parseConnectionString(config.connectionString);
   const hasDb = !!parsed.database;
 
+  const { host, port, user, password, database, ...extra } = parsed;
+
+  const flags: string[] = extra.flags
+    ? (Array.isArray(extra.flags) ? extra.flags : JSON.parse(extra.flags as string))
+    : [];
+  flags.push(hasDb ? 'CONNECT_WITH_DB' : '-CONNECT_WITH_DB');
+  delete extra.flags;
+
   return {
-    host: parsed.host,
-    port: parsed.port,
-    user: parsed.user,
-    password: parsed.password,
-    database: parsed.database,
-    waitForConnections: true,
-    connectionLimit: config.poolSize,
     connectTimeout: 60000,
     supportBigNumbers: true,
     jsonStrings: true,
+    ...extra,
+    host,
+    port,
+    user,
+    password,
+    database,
     namedPlaceholders: false,
-    flags: hasDb ? ['CONNECT_WITH_DB'] : ['-CONNECT_WITH_DB'],
-    ...(parsed.charset && { charset: parsed.charset as string }),
+    waitForConnections: true,
+    connectionLimit: config.poolSize,
+    flags,
   } as PoolOptions;
 }
