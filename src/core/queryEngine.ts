@@ -119,9 +119,13 @@ export async function executeRaw(
     if (unpack) {
       const queryType = detectQueryType(query);
       if (params.length === 1) {
-        result = parseResponse(queryType, response[0]);
+        result = queryType
+          ? parseResponse(queryType, response[0])
+          : unpackSelect(response[0]);
       } else {
-        result = response.map((r) => parseResponse(queryType, r));
+        result = response.map((r) =>
+          queryType ? parseResponse(queryType, r) : unpackSelect(r)
+        );
       }
     } else {
       result = params.length === 1 ? response[0] : response;
@@ -156,6 +160,25 @@ export async function executeRaw(
 
     return null;
   }
+}
+
+function unpackSelect(rows: any): any {
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+
+  const first = rows[0];
+  const columns = Object.keys(first);
+
+  if (columns.length === 1) {
+    // Single column — return scalar for 1 row, array of values for multiple
+    if (rows.length === 1) return first[columns[0]] ?? null;
+    const values = new Array(rows.length);
+    for (let i = 0; i < rows.length; i++) values[i] = rows[i][columns[0]] ?? null;
+    return values;
+  }
+
+  // Multiple columns — return row for 1 row, array for multiple
+  if (rows.length === 1) return first;
+  return rows;
 }
 
 function detectQueryType(query: string): QueryType {
