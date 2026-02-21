@@ -64,7 +64,7 @@ const KEY_ALIASES: Record<string, string> = {
 
 function parseUri(uri: string): ParsedConnection {
   const match = uri.match(
-    /^mysql:\/\/([^:]+):([^@]*)@([^/:]+):?(\d+)?\/([^?]+)\??(.*)$/
+    /^mysql:\/\/([^:@]+)(?::([^@]*))?@([^/:]+):?(\d+)?\/([^?]+)\??(.*)$/
   );
 
   if (!match) throw new Error('Invalid MySQL connection URI');
@@ -78,10 +78,10 @@ function parseUri(uri: string): ParsedConnection {
   }
 
   return {
-    host: match[1],
+    host: match[3],
     port: match[4] ? parseInt(match[4], 10) : 3306,
-    user: decodeURIComponent(match[2] || ''),
-    password: decodeURIComponent(match[3] || ''),
+    user: decodeURIComponent(match[1] || ''),
+    password: decodeURIComponent(match[2] || ''),
     database: match[5],
     ...params,
   };
