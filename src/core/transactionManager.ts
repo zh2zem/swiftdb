@@ -103,8 +103,10 @@ export async function executeTransaction(
     if (conn) {
       try {
         await conn.rollback();
-      } catch {}
-      releaseConnection(conn);
+        releaseConnection(conn);
+      } catch {
+        conn.destroy();
+      }
     }
 
     const errorMsg = `[swiftdb] Transaction error: ${err.message}\nResource: ${resource}`;
@@ -133,27 +135,35 @@ export async function startTransaction(
   cb?: CFXCallback,
   isPromise?: boolean
 ): Promise<boolean | null> {
-  let conn;
-  let timedOut = false;
+  let conn: any;
 
   try {
     conn = await acquireConnection();
     await conn.beginTransaction();
 
+    let settled = false;
+
     const timeout = setTimeout(() => {
-      timedOut = true;
+      if (!settled && conn) {
+        try { conn.rollback(); } catch {}
+        conn.destroy();
+        conn = null;
+      }
     }, 30000);
 
     const runQuery = async (sql: string, params?: CFXParameters): Promise<any> => {
-      if (timedOut) throw new Error('[swiftdb] Transaction timed out (30s)');
+      if (!conn) throw new Error('[swiftdb] Transaction timed out (30s)');
       const [parsedSql, parsedParams] = parseArguments(sql, params);
-      const [rows] = await conn!.query({ sql: parsedSql, typeCast } as any, parsedParams);
+      const [rows] = await conn.query({ sql: parsedSql, typeCast } as any, parsedParams);
       return rows;
     };
 
     const shouldCommit = await queryCb(runQuery);
 
+    settled = true;
     clearTimeout(timeout);
+
+    if (!conn) throw new Error('[swiftdb] Transaction timed out (30s)');
 
     if (shouldCommit === false) {
       await conn.rollback();
@@ -170,8 +180,10 @@ export async function startTransaction(
     if (conn) {
       try {
         await conn.rollback();
-      } catch {}
-      releaseConnection(conn);
+        releaseConnection(conn);
+      } catch {
+        conn.destroy();
+      }
     }
 
     console.log(`^1[swiftdb] Interactive transaction error: ${err.message}^0`);

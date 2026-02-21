@@ -43,8 +43,10 @@ export async function executeBatch(
     if (conn) {
       try {
         await conn.rollback();
-      } catch {}
-      releaseConnection(conn);
+        releaseConnection(conn);
+      } catch {
+        conn.destroy();
+      }
     }
 
     const errorMsg = `[swiftdb] Batch error: ${err.message}\nQuery: ${query}\nResource: ${resource}`;
