@@ -1,0 +1,68 @@
+import mysql from 'mysql2/promise';
+import type { Pool, PoolConnection, PoolStats, SwiftConfig, PoolOptions } from '../types';
+import { buildPoolOptions } from '../config';
+
+let pool: Pool | null = null;
+let pendingCount = 0;
+let maxPending = 100;
+let retryDelay = 1000;
+
+const MAX_RETRY_DELAY = 30000;
+
+export async function initializePool(config: SwiftConfig): Promise<void> {
+  maxPending = config.maxPending;
+  const options = buildPoolOptions(config);
+
+  while (!pool) {
+    try {
+      pool = mysql.createPool(options);
+      const conn = await pool.getConnection();
+      conn.release();
+      retryDelay = 1000;
+      console.log(`^2[swiftdb] Connected to ${options.host}:${options.port}/${options.database}^0`);
+    } catch (err: any) {
+      pool = null;
+      console.log(`^1[swiftdb] Connection failed: ${err.message}. Retrying in ${retryDelay / 1000}s...^0`);
+      await new Promise((r) => setTimeout(r, retryDelay));
+      retryDelay = Math.min(retryDelay * 2, MAX_RETRY_DELAY);
+    }
+  }
+}
+
+export async function getConnection(): Promise<PoolConnection> {
+  if (!pool) throw new Error('[swiftdb] Pool not initialized');
+
+  if (pendingCount >= maxPending) {
+    throw new Error(`[swiftdb] Backpressure limit reached (${maxPending} pending queries). Query rejected.`);
+  }
+
+  pendingCount++;
+  try {
+    const conn = await pool.getConnection();
+    return conn;
+  } catch (err) {
+    throw err;
+  } finally {
+    pendingCount--;
+  }
+}
+
+export function getPool(): Pool | null {
+  return pool;
+}
+
+export function isPoolReady(): boolean {
+  return pool !== null;
+}
+
+export function getPoolStats(): PoolStats {
+  if (!pool) return { active: 0, pending: 0, idle: 0, total: 0 };
+
+  const raw = (pool as any).pool;
+  return {
+    active: raw?._allConnections?.length - raw?._freeConnections?.length || 0,
+    pending: pendingCount,
+    idle: raw?._freeConnections?.length || 0,
+    total: raw?._allConnections?.length || 0,
+  };
+}
