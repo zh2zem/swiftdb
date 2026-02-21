@@ -1,5 +1,5 @@
 import { loadConfig } from './config';
-import { initializePool, isPoolReady } from './core/pool';
+import { initializePool, isPoolReady, preparePool } from './core/pool';
 import { initCache } from './cache/statementCache';
 import { initProfiler } from './profiler';
 import { initLogger, refreshDebug } from './logger';
@@ -12,6 +12,7 @@ import type { CFXCallback, CFXParameters, TransactionQuery } from './types';
 
 const config = loadConfig();
 
+preparePool();
 initCache(config.cacheSize);
 initProfiler(config.profilerSampleRate);
 initLogger(config);

@@ -6,8 +6,16 @@ let pool: Pool | null = null;
 let activeCount = 0;
 let maxPending = 100;
 let retryDelay = 1000;
+let poolReady: Promise<void> | null = null;
+let resolvePoolReady: (() => void) | null = null;
 
 const MAX_RETRY_DELAY = 30000;
+
+export function preparePool(): void {
+  poolReady = new Promise((resolve) => {
+    resolvePoolReady = resolve;
+  });
+}
 
 export async function initializePool(config: SwiftConfig): Promise<void> {
   maxPending = config.maxPending;
@@ -20,6 +28,7 @@ export async function initializePool(config: SwiftConfig): Promise<void> {
       conn.release();
       retryDelay = 1000;
       console.log(`^2[swiftdb] Connected to ${options.host}:${options.port}/${options.database}^0`);
+      if (resolvePoolReady) resolvePoolReady();
     } catch (err: any) {
       pool = null;
       console.log(`^1[swiftdb] Connection failed: ${err.message}. Retrying in ${retryDelay / 1000}s...^0`);
@@ -30,6 +39,7 @@ export async function initializePool(config: SwiftConfig): Promise<void> {
 }
 
 export async function getConnection(): Promise<PoolConnection> {
+  if (!pool && poolReady) await poolReady;
   if (!pool) throw new Error('[swiftdb] Pool not initialized');
 
   if (activeCount >= maxPending) {
