@@ -85,25 +85,23 @@ for alias, method in pairs(aliases) do
     MySQL.Sync[alias]  = MySQL[method].await
 end
 
-function MySQL.ready(cb)
-    Citizen.CreateThreadNow(function()
-        while GetResourceState('swiftdb') ~= 'started' do
-            Wait(50)
-        end
-
-        db:awaitConnection()
-
-        if cb then cb() end
-    end)
-end
-
-MySQL.ready.await = function()
+local function onReady(cb)
     while GetResourceState('swiftdb') ~= 'started' do
         Wait(50)
     end
 
     db:awaitConnection()
+
+    if cb then return cb() end
     return true
 end
+
+MySQL.ready = setmetatable({
+    await = onReady,
+}, {
+    __call = function(_, cb)
+        Citizen.CreateThreadNow(function() onReady(cb) end)
+    end,
+})
 
 _ENV.MySQL = MySQL
