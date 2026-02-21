@@ -1,0 +1,16 @@
+export const oxmysqlAliases: Record<string, string> = {
+  query: 'query',
+  single: 'single',
+  scalar: 'scalar',
+  update: 'update',
+  insert: 'insert',
+  transaction: 'transaction',
+  startTransaction: 'startTransaction',
+  prepare: 'prepare',
+  rawExecute: 'rawExecute',
+  store: 'store',
+  execute: 'execute',
+  fetch: 'fetch',
+  isReady: 'isReady',
+  awaitConnection: 'awaitConnection',
+};
