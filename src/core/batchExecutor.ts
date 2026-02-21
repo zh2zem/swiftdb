@@ -1,5 +1,5 @@
 import type { CFXCallback, CFXParameters } from '../types';
-import { acquireConnection, releaseConnection } from './connection';
+import { acquireConnection, releaseConnection, destroyConnection } from './connection';
 import { parseArguments } from '../utils/parseArguments';
 import { scheduleTick } from '../utils/scheduleTick';
 import { logQuery, logSlowQuery } from '../logger';
@@ -45,7 +45,7 @@ export async function executeBatch(
         await conn.rollback();
         releaseConnection(conn);
       } catch {
-        conn.destroy();
+        destroyConnection(conn);
       }
     }
 

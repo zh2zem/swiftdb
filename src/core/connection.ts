@@ -1,5 +1,5 @@
 import type { PoolConnection } from '../types';
-import { getConnection } from './pool';
+import { getConnection, releasePoolConnection, destroyPoolConnection } from './pool';
 
 export async function acquireConnection(): Promise<PoolConnection> {
   return getConnection();
@@ -7,6 +7,12 @@ export async function acquireConnection(): Promise<PoolConnection> {
 
 export function releaseConnection(conn: PoolConnection): void {
   try {
-    conn.release();
+    releasePoolConnection(conn);
+  } catch {}
+}
+
+export function destroyConnection(conn: PoolConnection): void {
+  try {
+    destroyPoolConnection(conn);
   } catch {}
 }

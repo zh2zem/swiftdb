@@ -31,6 +31,12 @@ MySQL.awaitConnection = async () => {
   return true;
 };
 
+function assertQuery(query: unknown): asserts query is string {
+  if (typeof query !== 'string') {
+    throw new Error(`[swiftdb] Expected string for query, got ${typeof query}`);
+  }
+}
+
 MySQL.query = (
   query: string,
   parameters: CFXParameters,
@@ -38,6 +44,7 @@ MySQL.query = (
   invokingResource?: string,
   isPromise?: boolean
 ) => {
+  assertQuery(query);
   const resource = invokingResource || GetInvokingResource();
   executeQuery(null, resource, query, parameters, cb, isPromise);
 };
@@ -49,6 +56,7 @@ MySQL.single = (
   invokingResource?: string,
   isPromise?: boolean
 ) => {
+  assertQuery(query);
   const resource = invokingResource || GetInvokingResource();
   executeQuery('single', resource, query, parameters, cb, isPromise);
 };
@@ -60,6 +68,7 @@ MySQL.scalar = (
   invokingResource?: string,
   isPromise?: boolean
 ) => {
+  assertQuery(query);
   const resource = invokingResource || GetInvokingResource();
   executeQuery('scalar', resource, query, parameters, cb, isPromise);
 };
@@ -71,6 +80,7 @@ MySQL.update = (
   invokingResource?: string,
   isPromise?: boolean
 ) => {
+  assertQuery(query);
   const resource = invokingResource || GetInvokingResource();
   executeQuery('update', resource, query, parameters, cb, isPromise);
 };
@@ -82,6 +92,7 @@ MySQL.insert = (
   invokingResource?: string,
   isPromise?: boolean
 ) => {
+  assertQuery(query);
   const resource = invokingResource || GetInvokingResource();
   executeQuery('insert', resource, query, parameters, cb, isPromise);
 };
@@ -112,6 +123,7 @@ MySQL.prepare = (
   invokingResource?: string,
   isPromise?: boolean
 ) => {
+  assertQuery(query);
   const resource = invokingResource || GetInvokingResource();
   executeRaw(resource, query, parameters, cb, isPromise, true);
 };
@@ -123,6 +135,7 @@ MySQL.rawExecute = (
   invokingResource?: string,
   isPromise?: boolean
 ) => {
+  assertQuery(query);
   const resource = invokingResource || GetInvokingResource();
   executeRaw(resource, query, parameters, cb, isPromise, false);
 };

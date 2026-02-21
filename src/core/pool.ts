@@ -3,7 +3,7 @@ import type { Pool, PoolConnection, PoolStats, SwiftConfig, PoolOptions } from '
 import { buildPoolOptions } from '../config';
 
 let pool: Pool | null = null;
-let pendingCount = 0;
+let activeCount = 0;
 let maxPending = 100;
 let retryDelay = 1000;
 
@@ -32,19 +32,23 @@ export async function initializePool(config: SwiftConfig): Promise<void> {
 export async function getConnection(): Promise<PoolConnection> {
   if (!pool) throw new Error('[swiftdb] Pool not initialized');
 
-  if (pendingCount >= maxPending) {
-    throw new Error(`[swiftdb] Backpressure limit reached (${maxPending} pending queries). Query rejected.`);
+  if (activeCount >= maxPending) {
+    throw new Error(`[swiftdb] Backpressure limit reached (${maxPending} active queries). Query rejected.`);
   }
 
-  pendingCount++;
-  try {
-    const conn = await pool.getConnection();
-    return conn;
-  } catch (err) {
-    throw err;
-  } finally {
-    pendingCount--;
-  }
+  activeCount++;
+  const conn = await pool.getConnection();
+  return conn;
+}
+
+export function releasePoolConnection(conn: PoolConnection): void {
+  activeCount--;
+  conn.release();
+}
+
+export function destroyPoolConnection(conn: PoolConnection): void {
+  activeCount--;
+  conn.destroy();
 }
 
 export function getPool(): Pool | null {
@@ -61,7 +65,7 @@ export function getPoolStats(): PoolStats {
   const raw = (pool as any).pool;
   return {
     active: raw?._allConnections?.length - raw?._freeConnections?.length || 0,
-    pending: pendingCount,
+    pending: activeCount,
     idle: raw?._freeConnections?.length || 0,
     total: raw?._allConnections?.length || 0,
   };

@@ -1,5 +1,5 @@
 import type { CFXCallback, CFXParameters, TransactionQuery } from '../types';
-import { acquireConnection, releaseConnection } from './connection';
+import { acquireConnection, releaseConnection, destroyConnection } from './connection';
 import { parseArguments } from '../utils/parseArguments';
 import { scheduleTick } from '../utils/scheduleTick';
 import { logQuery, logSlowQuery } from '../logger';
@@ -105,7 +105,7 @@ export async function executeTransaction(
         await conn.rollback();
         releaseConnection(conn);
       } catch {
-        conn.destroy();
+        destroyConnection(conn);
       }
     }
 
@@ -146,7 +146,7 @@ export async function startTransaction(
     const timeout = setTimeout(() => {
       if (!settled && conn) {
         try { conn.rollback(); } catch {}
-        conn.destroy();
+        destroyConnection(conn);
         conn = null;
       }
     }, 30000);
@@ -182,7 +182,7 @@ export async function startTransaction(
         await conn.rollback();
         releaseConnection(conn);
       } catch {
-        conn.destroy();
+        destroyConnection(conn);
       }
     }
 

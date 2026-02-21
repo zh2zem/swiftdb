@@ -73,7 +73,6 @@ export async function executeQuery(
 
     emit('oxmysql:error', {
       query,
-      parameters,
       message: err.message,
       err: err.code,
       resource,
@@ -145,7 +144,6 @@ export async function executeRaw(
 
     emit('oxmysql:error', {
       query,
-      parameters,
       message: err.message,
       err: err.code,
       resource,
