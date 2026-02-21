@@ -31,6 +31,8 @@ dependencies { '/server:12913' }
 
 server_script 'dist/build.js'
 
+file 'lib/MySQL.lua'
+
 provide 'mysql-async'
 provide 'ghmattimysql'
 provide 'oxmysql'
