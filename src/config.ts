@@ -32,7 +32,6 @@ export function loadConfig(): SwiftConfig {
     slowQueryWarning: getConvarInt('swift_slow_query_warning', 200, 'mysql_slow_query_warning'),
     poolSize: getConvarInt('swift_pool_size', 10),
     maxPending: getConvarInt('swift_max_pending', 100),
-    cacheSize: getConvarInt('swift_cache_size', 500),
     profilerSampleRate: getConvarInt('swift_profiler_sample_rate', 20),
     transactionIsolation: getConvarInt('swift_transaction_isolation', 2, 'mysql_transaction_isolation_level'),
     logSize: getConvarInt('swift_log_size', 100, 'mysql_log_size'),
@@ -78,12 +77,12 @@ function parseUri(uri: string): ParsedConnection {
   }
 
   return {
+    ...params,
     host: match[3],
     port: match[4] ? parseInt(match[4], 10) : 3306,
     user: decodeURIComponent(match[1] || ''),
     password: decodeURIComponent(match[2] || ''),
     database: match[5],
-    ...params,
   };
 }
 
@@ -100,12 +99,12 @@ function parseDsn(dsn: string): ParsedConnection {
   }
 
   return {
+    ...result,
     host: result.host || 'localhost',
     port: parseInt(result.port || '3306', 10),
     user: result.user || 'root',
     password: result.password || '',
     database: result.database || '',
-    ...result,
   };
 }
 
@@ -141,6 +140,12 @@ export function buildPoolOptions(config: SwiftConfig): PoolOptions {
 
   return {
     connectTimeout: 60000,
+    // Keep pooled connections warm/healthy across quiet periods so the first query after
+    // an idle stretch (typical between PvP rounds) doesn't stall on a fresh handshake.
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0,
+    maxIdle: config.poolSize,
+    idleTimeout: 60000,
     supportBigNumbers: true,
     jsonStrings: true,
     ...extra,

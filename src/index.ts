@@ -4,8 +4,8 @@ import { initializePool, isPoolReady, preparePool } from './core/pool';
 import { initProfiler } from './profiler';
 import { initLogger, refreshDebug } from './logger';
 import { executeQuery, executeRaw } from './core/queryEngine';
+import { executeBatch } from './core/batchExecutor';
 import { executeTransaction, startTransaction } from './core/transactionManager';
-import { scheduleTick } from './utils/scheduleTick';
 import { mysqlAsyncAliases } from './compat/mysqlAsync';
 import { ghmattimysqlAliases } from './compat/ghmattimysql';
 import type { CFXCallback, CFXParameters, TransactionQuery } from './types';
@@ -95,6 +95,17 @@ MySQL.insert = (
 ) => {
   assertQuery(query);
   const resource = invokingResource || GetInvokingResource();
+
+  // Batch insert: a 2D param array (e.g. {{'a'}, {'b'}}) is collapsed into a single
+  // multi-row INSERT by executeBatch. Single-row callers pass a flat array and skip this.
+  if (Array.isArray(parameters) && parameters.length > 0 && Array.isArray(parameters[0])) {
+    const wrapped: CFXCallback | undefined = cb
+      ? (results, err) => cb((results as any)?.[0]?.insertId ?? null, err)
+      : undefined;
+    executeBatch(resource, query, parameters as any[][], wrapped, isPromise);
+    return;
+  }
+
   executeQuery('insert', resource, query, parameters, cb, isPromise);
 };
 
@@ -106,7 +117,7 @@ MySQL.transaction = (
   isPromise?: boolean
 ) => {
   const resource = invokingResource || GetInvokingResource();
-  executeTransaction(resource, queries, parameters, cb, isPromise, config.transactionIsolation);
+  executeTransaction(resource, queries, parameters, cb, isPromise);
 };
 
 MySQL.startTransaction = (
@@ -199,5 +210,15 @@ setTimeout(async () => {
 
   await initializePool(config);
 
-  setInterval(refreshDebug, 1000);
+  // Sync debug/profiler state once at startup, then react to convar changes instead of
+  // polling every second — no permanent timer on the event loop.
+  refreshDebug();
+
+  if (typeof AddConvarChangeListener === 'function') {
+    AddConvarChangeListener('swift_debug', refreshDebug);
+    AddConvarChangeListener('mysql_debug', refreshDebug);
+  } else {
+    // Fallback for older server builds without the native.
+    setInterval(refreshDebug, 1000);
+  }
 }, 0);

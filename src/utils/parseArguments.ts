@@ -17,7 +17,12 @@ export function parseArguments(
     return [query, []];
   }
 
-  const placeholders = query.match(/\?(?!\?)/g)?.length ?? 0;
+  // Count '?' placeholders not immediately followed by another '?' (matches /\?(?!\?)/g)
+  // via a char scan to avoid allocating a match array on every query.
+  let placeholders = 0;
+  for (let i = 0; i < query.length; i++) {
+    if (query.charCodeAt(i) === 63 && query.charCodeAt(i + 1) !== 63) placeholders++;
+  }
 
   if (parameters && !Array.isArray(parameters)) {
     const arr: unknown[] = [];

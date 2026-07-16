@@ -1,6 +1,6 @@
 import mysql from 'mysql2/promise';
-import type { Pool, PoolConnection, PoolStats, SwiftConfig, PoolOptions } from '../types';
-import { buildPoolOptions } from '../config';
+import type { Pool, PoolConnection, SwiftConfig } from '../types';
+import { buildPoolOptions, getIsolationLevel } from '../config';
 
 let pool: Pool | null = null;
 let activeCount = 0;
@@ -20,10 +20,21 @@ export function preparePool(): void {
 export async function initializePool(config: SwiftConfig): Promise<void> {
   maxPending = config.maxPending;
   const options = buildPoolOptions(config);
+  const isolationLevel = getIsolationLevel(config.transactionIsolation);
 
   while (!pool) {
     try {
       pool = mysql.createPool(options);
+
+      // Set the session isolation level once per physical connection instead of
+      // issuing SET TRANSACTION before every transaction.
+      const corePool = (pool as any).pool;
+      if (corePool?.on) {
+        corePool.on('connection', (conn: any) => {
+          conn.query(`SET SESSION TRANSACTION ISOLATION LEVEL ${isolationLevel}`, () => {});
+        });
+      }
+
       const conn = await pool.getConnection();
       conn.release();
       retryDelay = 1000;
@@ -46,13 +57,9 @@ export async function getConnection(): Promise<PoolConnection> {
     throw new Error(`[swiftdb] Backpressure limit reached (${maxPending} active queries). Query rejected.`);
   }
 
-  try {
-    const conn = await pool.getConnection();
-    activeCount++;
-    return conn;
-  } catch (err) {
-    throw err;
-  }
+  const conn = await pool.getConnection();
+  activeCount++;
+  return conn;
 }
 
 export function releasePoolConnection(conn: PoolConnection): void {
@@ -65,22 +72,6 @@ export function destroyPoolConnection(conn: PoolConnection): void {
   conn.destroy();
 }
 
-export function getPool(): Pool | null {
-  return pool;
-}
-
 export function isPoolReady(): boolean {
   return pool !== null;
-}
-
-export function getPoolStats(): PoolStats {
-  if (!pool) return { active: 0, pending: 0, idle: 0, total: 0 };
-
-  const raw = (pool as any).pool;
-  return {
-    active: raw?._allConnections?.length - raw?._freeConnections?.length || 0,
-    pending: activeCount,
-    idle: raw?._freeConnections?.length || 0,
-    total: raw?._allConnections?.length || 0,
-  };
 }

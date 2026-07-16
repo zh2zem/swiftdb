@@ -5,7 +5,8 @@ High-performance MySQL resource for FiveM. Drop-in replacement for oxmysql, mysq
 ## Features
 
 - Built on mysql2 with connection pooling and prepared statements
-- LRU statement cache for named parameter conversion
+- Named parameter support (`:name` / `@name`)
+- Multi-row batch inserts collapsed into a single statement
 - Backpressure control to prevent query queue overload
 - Sampled MySQL profiler (server-side `SHOW PROFILES`)
 - Slow query warnings
@@ -77,6 +78,9 @@ local count = exports.swiftdb:scalar_async('SELECT COUNT(*) FROM users')
 -- Insert
 local id = exports.swiftdb:insert_async('INSERT INTO users (name) VALUES (?)', {'john'})
 
+-- Batch insert (2D params) — collapsed into one multi-row INSERT, returns first insert ID
+local firstId = exports.swiftdb:insert_async('INSERT INTO users (name) VALUES (?)', {{'alice'}, {'bob'}, {'charlie'}})
+
 -- Update
 local affected = exports.swiftdb:update_async('UPDATE users SET name = ? WHERE id = ?', {'jane', 1})
 
@@ -104,13 +108,27 @@ All convars have legacy aliases for oxmysql/mysql-async compatibility.
 | `swift_slow_query_warning` | `200` | Slow query threshold in ms |
 | `swift_pool_size` | `10` | Max pooled connections |
 | `swift_max_pending` | `100` | Max in-flight queries before rejecting |
-| `swift_cache_size` | `500` | LRU statement cache capacity |
 | `swift_profiler_sample_rate` | `20` | Profile every Nth query |
 | `swift_transaction_isolation` | `2` | 1=REPEATABLE READ, 2=READ COMMITTED, 3=READ UNCOMMITTED, 4=SERIALIZABLE |
 | `swift_log_size` | `100` | Per-resource log ring buffer size |
 | `swift_ui` | `false` | Enable query logging for UI layer |
 
 Legacy aliases: `mysql_debug`, `mysql_slow_query_warning`, `mysql_transaction_isolation_level`, `mysql_log_size`.
+
+### Recommended settings for PvP servers
+
+PvP workloads are bursty (stats/loadouts saved at round end) and latency-sensitive. The pool
+is kept warm via keep-alive so the first query after a quiet period doesn't stall. For busy
+servers, raise the pool size and keep debug off in production:
+
+```cfg
+set swift_debug "false"          # keep off in prod — logging + profiler add overhead
+set swift_pool_size "16"         # more headroom for round-end save bursts
+set swift_slow_query_warning "150"
+```
+
+- Use `insert` with a 2D param array for bulk saves — it collapses into one multi-row INSERT.
+- Wrap multi-write round-end saves in a `transaction` so they commit atomically in one round-trip batch.
 
 ## Compatibility
 

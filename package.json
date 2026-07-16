@@ -1,7 +1,7 @@
 {
   "name": "swiftdb",
   "version": "1.0.0",
-  "description": "High-performance FiveM MySQL resource",
+  "description": "High-performance FiveM MySQL resource (PvP-tuned)",
   "author": "L1iith",
   "license": "GPL-3.0",
   "scripts": {

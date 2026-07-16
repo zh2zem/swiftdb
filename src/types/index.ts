@@ -16,18 +16,6 @@ export type TransactionQuery =
   | [string, CFXParameters][]
   | { query: string | string[]; parameters?: CFXParameters; values?: CFXParameters };
 
-export interface CachedStatement {
-  sql: string;
-  params: string[];
-}
-
-export interface PoolStats {
-  active: number;
-  pending: number;
-  idle: number;
-  total: number;
-}
-
 export interface SwiftConfig {
   connectionString: string;
   debug: boolean | string[];
@@ -35,7 +23,6 @@ export interface SwiftConfig {
   slowQueryWarning: number;
   poolSize: number;
   maxPending: number;
-  cacheSize: number;
   profilerSampleRate: number;
   transactionIsolation: number;
   logSize: number;

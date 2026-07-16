@@ -40,18 +40,3 @@ export function typeCast(field: any, next: () => any): any {
       return next();
   }
 }
-
-export function typeCastExecute(field: any, next: () => any): any {
-  switch (field.type) {
-    case 'DATETIME':
-    case 'DATETIME2':
-    case 'TIMESTAMP':
-    case 'TIMESTAMP2':
-    case 'NEWDATE':
-      return parseDateTime(field.string());
-    case 'DATE':
-      return parseDate(field.string());
-    default:
-      return next();
-  }
-}

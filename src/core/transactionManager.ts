@@ -4,7 +4,6 @@ import { parseArguments } from '../utils/parseArguments';
 import { scheduleTick } from '../utils/scheduleTick';
 import { logQuery, logSlowQuery } from '../logger';
 import { typeCast } from '../utils/typeCast';
-import { getIsolationLevel } from '../config';
 
 interface ParsedQuery {
   sql: string;
@@ -53,8 +52,7 @@ export async function executeTransaction(
   queries: TransactionQuery,
   parameters: CFXParameters,
   cb?: CFXCallback,
-  isPromise?: boolean,
-  isolationLevel?: number
+  isPromise?: boolean
 ): Promise<boolean> {
   if (typeof parameters === 'function') {
     cb = parameters as unknown as CFXCallback;
@@ -69,10 +67,6 @@ export async function executeTransaction(
   try {
     const parsed = parseTransaction(queries, parameters);
     conn = await acquireConnection();
-
-    if (isolationLevel) {
-      await conn.query(`SET TRANSACTION ISOLATION LEVEL ${getIsolationLevel(isolationLevel)}`);
-    }
 
     await conn.beginTransaction();
 
